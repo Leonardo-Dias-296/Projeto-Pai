@@ -262,7 +262,7 @@ const s = StyleSheet.create({
   camera: { height: 200, borderRadius: 12, overflow: 'hidden' },
 
   guia: {
-    position: 'absolute', inset: 20,
+    position: 'absolute', top: 20, left: 20, right: 20, bottom: 20,
     borderRadius: 6, alignItems: 'center', justifyContent: 'center',
   },
   guiaCantoTL: { position:'absolute', top:0, left:0, width:20, height:20, borderTopWidth:2, borderLeftWidth:2, borderColor:'#f97316', borderRadius:2 },
