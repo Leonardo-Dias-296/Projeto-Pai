@@ -1,0 +1,11 @@
+{
+  "name": "@autocontrol/web",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "build": "echo 'HTML estático — nenhum build necessário'"
+  },
+  "devDependencies": {
+    "serve": "^14.2.3"
+  }
+}

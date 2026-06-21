@@ -1,0 +1,68 @@
+// Banco de dados: PostgreSQL via Prisma ORM
+// Para ativar:
+//   1. npm install @prisma/client prisma  (dentro de apps/backend)
+//   2. Preencha DATABASE_URL no .env
+//   3. npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Cliente {
+  id        String    @id @default(cuid())
+  nome      String
+  telefone  String
+  cpf       String?
+  email     String?
+  veiculos  Veiculo[]
+  createdAt DateTime  @default(now())
+}
+
+model Veiculo {
+  id         String         @id @default(cuid())
+  clienteId  String
+  cliente    Cliente        @relation(fields: [clienteId], references: [id])
+  placa      String         @unique
+  marca      String
+  modelo     String
+  ano        Int
+  cor        String
+  ordens     OrdemServico[]
+  createdAt  DateTime       @default(now())
+}
+
+model OrdemServico {
+  id               String   @id @default(cuid())
+  numero           String   @unique
+  veiculoId        String
+  veiculo          Veiculo  @relation(fields: [veiculoId], references: [id])
+  kmEntrada        Int
+  nivelCombustivel String
+  relatoCliente    String?
+  status           String   @default("aguardando_diagnostico")
+  statusPagamento  String   @default("pendente")
+  totalMaoObra     Float    @default(0)
+  totalPecas       Float    @default(0)
+  total            Float    @default(0)
+  itens            ItemOS[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model ItemOS {
+  id           String       @id @default(cuid())
+  osId         String
+  os           OrdemServico @relation(fields: [osId], references: [id])
+  descricao    String
+  tipo         String       // defeito | reparo | revisao
+  status       String       @default("pendente")
+  responsavel  String?
+  concluidoEm  DateTime?
+  valorMaoObra Float        @default(0)
+  valorPecas   Float        @default(0)
+}

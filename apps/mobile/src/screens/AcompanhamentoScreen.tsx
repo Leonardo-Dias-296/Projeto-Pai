@@ -1,0 +1,1 @@
+export { AcompanhamentoScreen } from './Screens';

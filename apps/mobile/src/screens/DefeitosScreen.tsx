@@ -1,0 +1,1 @@
+export { DefeitosScreen } from './Screens';

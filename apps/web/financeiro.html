@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AutoControl — Financeiro</title>
+<style>
+  /* ── Reset & tokens ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0f1117;
+    --surface:   #181c27;
+    --border:    #252a38;
+    --muted:     #3a4055;
+    --text:      #e8eaf0;
+    --sub:       #8b91a8;
+    --accent:    #f97316;   /* laranja mecânico */
+    --accent-dim:#7c3813;
+    --green:     #22c55e;
+    --yellow:    #eab308;
+    --red:       #ef4444;
+    --blue:      #3b82f6;
+    --radius:    8px;
+    --font:      'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── Sidebar ────────────────────────────────────────────────────────────── */
+  .sidebar {
+    width: 220px;
+    min-height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .logo-mark {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo-mark span { color: var(--accent); }
+  .logo-sub { font-size: 11px; color: var(--sub); margin-top: 2px; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 0;
+    color: var(--sub);
+    transition: background .15s, color .15s;
+    border-left: 3px solid transparent;
+    font-size: 13.5px;
+  }
+
+  .nav-item:hover { background: var(--border); color: var(--text); }
+  .nav-item.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border-left-color: var(--accent); }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--sub);
+  }
+
+  /* ── Main ───────────────────────────────────────────────────────────────── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    height: 60px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .topbar-title { font-size: 16px; font-weight: 600; flex: 1; }
+
+  .search-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 14px;
+    color: var(--text);
+    font-size: 13px;
+    width: 240px;
+    outline: none;
+  }
+
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--sub); }
+
+  .page-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px;
+  }
+
+  /* ── KPI cards ──────────────────────────────────────────────────────────── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .kpi-label { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-value { font-size: 28px; font-weight: 700; margin: 6px 0 4px; letter-spacing: -1px; }
+  .kpi-delta { font-size: 12px; color: var(--sub); }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.dn { color: var(--red); }
+
+  /* ── Filters ────────────────────────────────────────────────────────────── */
+  .filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--sub);
+    cursor: pointer;
+    font-size: 12.5px;
+    transition: all .15s;
+  }
+
+  .chip:hover { border-color: var(--muted); color: var(--text); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Table ──────────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-title { font-size: 14px; font-weight: 600; flex: 1; }
+
+  .btn {
+    padding: 7px 16px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: opacity .15s;
+  }
+
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-ghost { background: var(--border); color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    text-align: left;
+    padding: 10px 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sub);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr:hover td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+
+  .plate {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Badges ─────────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .badge-diag    { background: color-mix(in srgb, var(--blue)   12%, transparent); color: var(--blue); }
+  .badge-reparo  { background: color-mix(in srgb, var(--yellow)  12%, transparent); color: var(--yellow); }
+  .badge-aguard  { background: color-mix(in srgb, var(--sub)     12%, transparent); color: var(--sub); }
+  .badge-concl   { background: color-mix(in srgb, var(--green)   12%, transparent); color: var(--green); }
+  .badge-cancel  { background: color-mix(in srgb, var(--red)     12%, transparent); color: var(--red); }
+
+  .pay-pago      { color: var(--green); font-weight: 600; }
+  .pay-pendente  { color: var(--yellow); }
+  .pay-parcelado { color: var(--blue); }
+
+  .valor { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* ── Row actions ────────────────────────────────────────────────────────── */
+  .row-actions { display: flex; gap: 6px; }
+
+  .icon-btn {
+    background: var(--border);
+    border: none;
+    border-radius: 6px;
+    padding: 5px 8px;
+    cursor: pointer;
+    color: var(--sub);
+    font-size: 13px;
+    transition: background .15s, color .15s;
+  }
+
+  .icon-btn:hover { background: var(--muted); color: var(--text); }
+
+  /* ── Modal ──────────────────────────────────────────────────────────────── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 520px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--sub); cursor: pointer; font-size: 20px; }
+
+  .modal-section { margin-bottom: 20px; }
+  .modal-section-title { font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+
+  .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--sub); }
+
+  .pay-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13px;
+    width: 100%;
+    margin-top: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .pay-select:focus { border-color: var(--accent); }
+
+  .total-row { display: flex; justify-content: space-between; padding: 12px 0; font-size: 16px; font-weight: 700; }
+  .total-value { color: var(--accent); }
+
+  /* ── Empty ───────────────────────────────────────────────────────────────── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--sub); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Paginação ───────────────────────────────────────────────────────────── */
+  .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 14px 20px; border-top: 1px solid var(--border); }
+  .pg-btn { background: var(--border); border: none; border-radius: 6px; padding: 5px 10px; color: var(--text); cursor: pointer; font-size: 12px; }
+  .pg-btn.active { background: var(--accent); }
+  .pg-info { color: var(--sub); font-size: 12px; margin-right: auto; }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">Auto<span>Control</span></div>
+    <div class="logo-sub">Painel Financeiro</div>
+  </div>
+
+  <div class="nav-item active" onclick="setPage('os')">
+    <span class="nav-icon">📋</span> Ordens de serviço
+  </div>
+  <div class="nav-item" onclick="setPage('relatorio')">
+    <span class="nav-icon">📊</span> Relatórios
+  </div>
+  <div class="nav-item" onclick="setPage('clientes')">
+    <span class="nav-icon">👥</span> Clientes
+  </div>
+  <div class="nav-item" onclick="setPage('config')">
+    <span class="nav-icon">⚙️</span> Configurações
+  </div>
+
+  <div class="sidebar-footer">Oficina São Paulo • v1.0</div>
+</aside>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────── -->
+<main class="main">
+  <header class="topbar">
+    <span class="topbar-title" id="topbar-title">Ordens de serviço</span>
+    <input class="search-box" type="text" placeholder="🔍  Buscar placa, cliente..." id="search-input" oninput="filtrarTabela()" />
+    <button class="btn btn-ghost" onclick="exportarCSV()">⬇ Exportar CSV</button>
+  </header>
+
+  <div class="page-body">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Faturamento mês</div>
+        <div class="kpi-value" id="kpi-fat">R$ 0</div>
+        <div class="kpi-delta up" id="kpi-fat-d">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">OS abertas</div>
+        <div class="kpi-value" id="kpi-abertas">0</div>
+        <div class="kpi-delta">em andamento</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">A receber</div>
+        <div class="kpi-value" id="kpi-receber">R$ 0</div>
+        <div class="kpi-delta dn" id="kpi-receber-d">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Concluídas hoje</div>
+        <div class="kpi-value" id="kpi-hoje">0</div>
+        <div class="kpi-delta">veículos entregues</div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters" id="filters">
+      <button class="chip active" onclick="setFiltro('todos', this)">Todas</button>
+      <button class="chip" onclick="setFiltro('aguardando_diagnostico', this)">Aguardando</button>
+      <button class="chip" onclick="setFiltro('em_reparo', this)">Em reparo</button>
+      <button class="chip" onclick="setFiltro('aguardando_aprovacao', this)">Aprovação</button>
+      <button class="chip" onclick="setFiltro('concluido', this)">Concluídas</button>
+      <button class="chip" onclick="setFiltro('pendente_pag', this)">💰 Pgto pendente</button>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Ordens de serviço</span>
+        <span style="color:var(--sub);font-size:12px;" id="count-label"></span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Nº OS</th>
+            <th>Placa</th>
+            <th>Cliente</th>
+            <th>Veículo</th>
+            <th>Entrada</th>
+            <th>Status</th>
+            <th>Total</th>
+            <th>Pagamento</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+
+      <div id="empty-state" class="empty-state" style="display:none;">
+        <div class="empty-icon">🔧</div>
+        <div>Nenhuma OS encontrada</div>
+      </div>
+
+      <div class="pagination">
+        <span class="pg-info" id="pg-info"></span>
+        <button class="pg-btn" id="btn-prev" onclick="mudarPagina(-1)">‹</button>
+        <button class="pg-btn active" id="btn-pg">1</button>
+        <button class="pg-btn" id="btn-next" onclick="mudarPagina(1)">›</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ── Modal detalhe OS ─────────────────────────────────────────────────────── -->
+<div class="overlay" id="modal-overlay" onclick="fecharModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-numero">—</span>
+      <button class="modal-close" onclick="fecharModal()">✕</button>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Veículo & Cliente</div>
+      <div class="detail-row"><span class="detail-label">Placa</span><span id="m-placa">—</span></div>
+      <div class="detail-row"><span class="detail-label">Veículo</span><span id="m-veiculo">—</span></div>
+      <div class="detail-row"><span class="detail-label">Cliente</span><span id="m-cliente">—</span></div>
+      <div class="detail-row"><span class="detail-label">KM entrada</span><span id="m-km">—</span></div>
+      <div class="detail-row"><span class="detail-label">Entrada</span><span id="m-entrada">—</span></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Serviços realizados</div>
+      <div id="m-itens"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Financeiro</div>
+      <div class="detail-row"><span class="detail-label">Mão de obra</span><span class="valor" id="m-mao">—</span></div>
+      <div class="detail-row"><span class="detail-label">Peças</span><span class="valor" id="m-pecas">—</span></div>
+      <div class="total-row"><span>Total</span><span class="total-value" id="m-total">—</span></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Status de pagamento</div>
+      <select class="pay-select" id="m-pay-select" onchange="salvarPagamento()">
+        <option value="pendente">⏳ Pendente</option>
+        <option value="parcelado">📅 Parcelado</option>
+        <option value="pago">✅ Pago</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DADOS MOCK ───────────────────────────────────────────────────────────────
+// Em produção, substitua por fetch('/api/os') com paginação real.
+const OS_MOCK = [
+  {
+    id:'1', numero:'OS-00258', placa:'ABC1D23', cliente:'Carlos Mendes',
+    veiculo:'VW Gol 2019', kmEntrada:152300, entrada:'2026-06-21T08:30:00Z',
+    status:'em_reparo', statusPagamento:'pendente',
+    totalMaoObra:450, totalPecas:230, total:680,
+    itens:[
+      {descricao:'Troca pastilha de freio', status:'concluido', valorMaoObra:150, valorPecas:80},
+      {descricao:'Alinhamento e balanceamento', status:'em_andamento', valorMaoObra:120, valorPecas:0},
+      {descricao:'Troca de óleo 5W30', status:'concluido', valorMaoObra:80, valorPecas:150},
+    ]
+  },
+  {
+    id:'2', numero:'OS-00257', placa:'DEF4G56', cliente:'Maria Oliveira',
+    veiculo:'Fiat Argo 2022', kmEntrada:34200, entrada:'2026-06-21T07:15:00Z',
+    status:'aguardando_aprovacao', statusPagamento:'pendente',
+    totalMaoObra:320, totalPecas:0, total:320,
+    itens:[
+      {descricao:'Diagnóstico sistema de injeção', status:'concluido', valorMaoObra:200, valorPecas:0},
+      {descricao:'Limpeza de bicos injetores', status:'pendente', valorMaoObra:120, valorPecas:0},
+    ]
+  },
+  {
+    id:'3', numero:'OS-00256', placa:'GHI7H89', cliente:'João Souza',
+    veiculo:'Chevrolet Onix 2020', kmEntrada:88100, entrada:'2026-06-20T14:00:00Z',
+    status:'concluido', statusPagamento:'pago',
+    totalMaoObra:280, totalPecas:420, total:700,
+    itens:[
+      {descricao:'Troca correia dentada', status:'concluido', valorMaoObra:200, valorPecas:280},
+      {descricao:'Troca bomba d\'água', status:'concluido', valorMaoObra:80, valorPecas:140},
+    ]
+  },
+  {
+    id:'4', numero:'OS-00255', placa:'JKL2M34', cliente:'Ana Costa',
+    veiculo:'Honda HRV 2021', kmEntrada:61500, entrada:'2026-06-20T10:30:00Z',
+    status:'concluido', statusPagamento:'parcelado',
+    totalMaoObra:180, totalPecas:600, total:780,
+    itens:[
+      {descricao:'Troca 4 pneus', status:'concluido', valorMaoObra:80, valorPecas:600},
+      {descricao:'Revisão freios', status:'concluido', valorMaoObra:100, valorPecas:0},
+    ]
+  },
+  {
+    id:'5', numero:'OS-00254', placa:'NOP3Q45', cliente:'Roberto Lima',
+    veiculo:'Toyota Corolla 2023', kmEntrada:12300, entrada:'2026-06-19T09:00:00Z',
+    status:'aguardando_diagnostico', statusPagamento:'pendente',
+    totalMaoObra:0, totalPecas:0, total:0,
+    itens:[]
+  },
+];
+
+// ─── Estado ───────────────────────────────────────────────────────────────────
+let filtroStatus = 'todos';
+let busca = '';
+let paginaAtual = 1;
+const POR_PAGINA = 10;
+let osSelecionada = null;
+let dados = [...OS_MOCK];
+
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+function calcularKPIs() {
+  const hoje = new Date().toISOString().slice(0,10);
+  const pagas = dados.filter(o => o.statusPagamento === 'pago');
+  const abertas = dados.filter(o => !['concluido','cancelado'].includes(o.status));
+  const pendentePag = dados.filter(o => o.statusPagamento === 'pendente' && o.status === 'concluido');
+  const conclHoje = dados.filter(o => o.status === 'concluido' && o.entrada.startsWith(hoje));
+
+  const faturamento = pagas.reduce((s,o)=>s+o.total, 0);
+  const aReceber = pendentePag.reduce((s,o)=>s+o.total, 0);
+
+  document.getElementById('kpi-fat').textContent = formatMoeda(faturamento);
+  document.getElementById('kpi-abertas').textContent = abertas.length;
+  document.getElementById('kpi-receber').textContent = formatMoeda(aReceber);
+  document.getElementById('kpi-hoje').textContent = conclHoje.length;
+
+  document.getElementById('kpi-receber-d').textContent = pendentePag.length + ' OS pendentes';
+}
+
+// ─── Tabela ───────────────────────────────────────────────────────────────────
+function dadosFiltrados() {
+  return dados.filter(o => {
+    const matchStatus = filtroStatus === 'todos'
+      ? true
+      : filtroStatus === 'pendente_pag'
+        ? o.statusPagamento === 'pendente'
+        : o.status === filtroStatus;
+
+    const q = busca.toLowerCase();
+    const matchBusca = !q || o.placa.toLowerCase().includes(q)
+      || o.cliente.toLowerCase().includes(q)
+      || o.numero.toLowerCase().includes(q);
+
+    return matchStatus && matchBusca;
+  });
+}
+
+function renderTabela() {
+  const filtrado = dadosFiltrados();
+  const inicio = (paginaAtual - 1) * POR_PAGINA;
+  const pagina = filtrado.slice(inicio, inicio + POR_PAGINA);
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty-state');
+
+  document.getElementById('count-label').textContent = `${filtrado.length} OS`;
+  document.getElementById('pg-info').textContent = `${inicio+1}–${Math.min(inicio+POR_PAGINA, filtrado.length)} de ${filtrado.length}`;
+  document.getElementById('btn-pg').textContent = paginaAtual;
+
+  if (filtrado.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  tbody.innerHTML = pagina.map(o => `
+    <tr>
+      <td><strong>${o.numero}</strong></td>
+      <td><span class="plate">${o.placa}</span></td>
+      <td>${o.cliente}</td>
+      <td style="color:var(--sub)">${o.veiculo}</td>
+      <td style="color:var(--sub)">${formatData(o.entrada)}</td>
+      <td>${badgeStatus(o.status)}</td>
+      <td class="valor">${o.total > 0 ? formatMoeda(o.total) : '—'}</td>
+      <td class="${payClass(o.statusPagamento)}">${payLabel(o.statusPagamento)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" title="Ver detalhes" onclick="abrirModal('${o.id}')">👁</button>
+          <button class="icon-btn" title="WhatsApp" onclick="abrirWhatsApp('${o.id}')">💬</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatMoeda(v) {
+  return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+function formatData(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+}
+
+function badgeStatus(s) {
+  const map = {
+    'aguardando_diagnostico': ['badge-diag',  '🔍 Diagnóstico'],
+    'em_reparo':              ['badge-reparo', '🔧 Em reparo'],
+    'aguardando_aprovacao':   ['badge-aguard', '⏳ Aprovação'],
+    'aprovado':               ['badge-diag',  '✅ Aprovado'],
+    'concluido':              ['badge-concl',  '✔ Concluído'],
+    'cancelado':              ['badge-cancel', '✖ Cancelado'],
+  };
+  const [cls, txt] = map[s] ?? ['badge-aguard', s];
+  return `<span class="badge ${cls}">${txt}</span>`;
+}
+
+function payLabel(p) {
+  return { pendente:'⏳ Pendente', pago:'✅ Pago', parcelado:'📅 Parcelado' }[p] ?? p;
+}
+
+function payClass(p) {
+  return { pendente:'pay-pendente', pago:'pay-pago', parcelado:'pay-parcelado' }[p] ?? '';
+}
+
+// ─── Filtros / busca ──────────────────────────────────────────────────────────
+function setFiltro(status, el) {
+  filtroStatus = status;
+  paginaAtual = 1;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderTabela();
+}
+
+function filtrarTabela() {
+  busca = document.getElementById('search-input').value;
+  paginaAtual = 1;
+  renderTabela();
+}
+
+function mudarPagina(delta) {
+  const total = Math.ceil(dadosFiltrados().length / POR_PAGINA);
+  paginaAtual = Math.max(1, Math.min(paginaAtual + delta, total));
+  renderTabela();
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+function abrirModal(id) {
+  const os = dados.find(o => o.id === id);
+  if (!os) return;
+  osSelecionada = os;
+
+  document.getElementById('modal-numero').textContent = os.numero;
+  document.getElementById('m-placa').innerHTML = `<span class="plate">${os.placa}</span>`;
+  document.getElementById('m-veiculo').textContent = os.veiculo;
+  document.getElementById('m-cliente').textContent = os.cliente;
+  document.getElementById('m-km').textContent = os.kmEntrada.toLocaleString('pt-BR') + ' km';
+  document.getElementById('m-entrada').textContent = formatData(os.entrada);
+
+  const itensHtml = os.itens.length === 0
+    ? '<div style="color:var(--sub);font-size:13px;padding:8px 0">Nenhum serviço registrado</div>'
+    : os.itens.map(i => `
+        <div class="detail-row">
+          <span class="detail-label">${i.descricao}</span>
+          <span style="display:flex;gap:10px;align-items:center">
+            <span style="color:var(--sub);font-size:12px">${formatMoeda(i.valorMaoObra + i.valorPecas)}</span>
+            ${i.status === 'concluido' ? '<span style="color:var(--green);font-size:11px">✔ Feito</span>' : '<span style="color:var(--yellow);font-size:11px">⏳ Andamento</span>'}
+          </span>
+        </div>
+      `).join('');
+
+  document.getElementById('m-itens').innerHTML = itensHtml;
+  document.getElementById('m-mao').textContent = formatMoeda(os.totalMaoObra);
+  document.getElementById('m-pecas').textContent = formatMoeda(os.totalPecas);
+  document.getElementById('m-total').textContent = formatMoeda(os.total);
+  document.getElementById('m-pay-select').value = os.statusPagamento;
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function fecharModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay') || e.type === 'click') {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+function salvarPagamento() {
+  if (!osSelecionada) return;
+  const novoStatus = document.getElementById('m-pay-select').value;
+  osSelecionada.statusPagamento = novoStatus;
+
+  // Em produção: PATCH /api/os/:id/pagamento
+  calcularKPIs();
+  renderTabela();
+}
+
+// ─── WhatsApp ─────────────────────────────────────────────────────────────────
+function abrirWhatsApp(id) {
+  const os = dados.find(o => o.id === id);
+  if (!os) return;
+  const msg = encodeURIComponent(
+    `Olá! Seu veículo *${os.placa}* (${os.veiculo}) está pronto.\n\n`
+    + `Serviços realizados:\n`
+    + os.itens.filter(i=>i.status==='concluido').map(i=>`• ${i.descricao}`).join('\n')
+    + `\n\nTotal: ${formatMoeda(os.total)}\nRef: ${os.numero}`
+  );
+  window.open(`https://wa.me/?text=${msg}`, '_blank');
+}
+
+// ─── Exportar CSV ─────────────────────────────────────────────────────────────
+function exportarCSV() {
+  const rows = [['Nº OS','Placa','Cliente','Veículo','Status','Total','Pagamento','Entrada']];
+  dadosFiltrados().forEach(o => rows.push([
+    o.numero, o.placa, o.cliente, o.veiculo, o.status,
+    o.total.toFixed(2), o.statusPagamento, o.entrada
+  ]));
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `autocontrol-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
+function setPage(page) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('topbar-title').textContent =
+    { os:'Ordens de serviço', relatorio:'Relatórios', clientes:'Clientes', config:'Configurações' }[page];
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+calcularKPIs();
+renderTabela();
+</script>
+</body>
+</html>

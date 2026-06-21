@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "AutoControl",
+    "slug": "autocontrol",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0f1117"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.autocontrol.oficina",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Usamos a câmera para fotografar a placa do veículo e realizar o reconhecimento automático."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1117"
+      },
+      "package": "com.autocontrol.oficina",
+      "permissions": ["CAMERA"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o AutoControl acesse a câmera para ler placas de veículos."
+        }
+      ]
+    ]
+  }
+}
