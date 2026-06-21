@@ -31,7 +31,7 @@ const db = {
   clientes: [] as any[],
 };
 
-let osCounter = 258;
+let osCounter = 0;
 
 function gerarNumeroOS() {
   return `OS-${String(++osCounter).padStart(5, '0')}`;

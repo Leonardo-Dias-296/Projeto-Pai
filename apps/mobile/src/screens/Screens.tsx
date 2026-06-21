@@ -166,14 +166,15 @@ export function AcompanhamentoScreen({ navigation, route }: AcompProps) {
     { id:'i3', descricao:'Revisão freios diant.', status:'pendente',    valorMaoObra:0, valorPecas:0 },
   ]);
 
-  async function avancarStatus(itemId: string) {
+  function mudarStatus(itemId: string, direcao: 1 | -1) {
     const item = itens.find((i) => i.id === itemId);
     if (!item) return;
     const idx = STATUS_ITEM.indexOf(item.status as any);
-    if (idx >= STATUS_ITEM.length - 1) return;
-    const novoStatus = STATUS_ITEM[idx + 1];
+    const novoIdx = idx + direcao;
+    if (novoIdx < 0 || novoIdx >= STATUS_ITEM.length) return;
+    const novoStatus = STATUS_ITEM[novoIdx];
     setItens((prev) => prev.map((i) => (i.id === itemId ? { ...i, status: novoStatus } : i)));
-    await fetch(`${API_URL}/os/${osId}/itens/${itemId}`, {
+    fetch(`${API_URL}/os/${osId}/itens/${itemId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: novoStatus }),
@@ -189,7 +190,8 @@ export function AcompanhamentoScreen({ navigation, route }: AcompProps) {
         const cor = STATUS_COLOR_ITEM[item.status];
         const label = STATUS_LABEL_ITEM[item.status];
         const icon = STATUS_ICON_ITEM[item.status];
-        const podAvancar = item.status !== 'concluido';
+        const podeAvancar = item.status !== 'concluido';
+        const podeVoltar = item.status !== 'pendente';
 
         return (
           <Card key={item.id} style={styles.itemCard}>
@@ -199,14 +201,24 @@ export function AcompanhamentoScreen({ navigation, route }: AcompProps) {
                 <Text style={[styles.itemDesc, { color: colors.text }]}>{item.descricao}</Text>
                 <Text style={[styles.statusText, { color: cor }]}>{label}</Text>
               </View>
-              {podAvancar && (
-                <TouchableOpacity
-                  style={[styles.avancarBtn, { backgroundColor: colors.primary + '20' }]}
-                  onPress={() => avancarStatus(item.id)}
-                >
-                  <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-                </TouchableOpacity>
-              )}
+              <View style={styles.statusActions}>
+                {podeVoltar && (
+                  <TouchableOpacity
+                    style={[styles.statusBtn, { backgroundColor: colors.danger + '15' }]}
+                    onPress={() => mudarStatus(item.id, -1)}
+                  >
+                    <Ionicons name="arrow-back" size={16} color={colors.danger} />
+                  </TouchableOpacity>
+                )}
+                {podeAvancar && (
+                  <TouchableOpacity
+                    style={[styles.statusBtn, { backgroundColor: colors.primary + '20' }]}
+                    onPress={() => mudarStatus(item.id, 1)}
+                  >
+                    <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </Card>
         );
@@ -361,7 +373,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
-  avancarBtn: {
+  statusActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  statusBtn: {
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
