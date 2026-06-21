@@ -1,31 +1,33 @@
-/**
- * DefeitosScreen — checklist de problemas + campo livre
- */
-
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, Alert, ActivityIndicator,
+  StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
+import { Card, Button, Badge, ScreenView } from '../components';
+import { useColors, spacing, borderRadius, typography } from '../theme';
 import { API_URL } from '../config';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Defeitos'>;
+// ─── DefeitosScreen ──────────────────────────────────────────────────────────
+
+type DefeitosProps = NativeStackScreenProps<RootStackParamList, 'Defeitos'>;
 
 const PROBLEMAS_COMUNS = [
-  { id:'p1', label:'Barulho na suspensão' },
-  { id:'p2', label:'Falha / engasgos no motor' },
-  { id:'p3', label:'Luz de injeção acesa' },
-  { id:'p4', label:'Vazamento de óleo' },
-  { id:'p5', label:'Freios com ruído' },
-  { id:'p6', label:'Câmbio com dificuldade' },
-  { id:'p7', label:'Ar condicionado sem funcionar' },
-  { id:'p8', label:'Bateria fraca / motor não parte' },
-  { id:'p9', label:'Revisão programada' },
+  { id:'p1', label:'Barulho na suspensão', icon: 'car-sport' as const },
+  { id:'p2', label:'Falha no motor', icon: 'flash' as const },
+  { id:'p3', label:'Luz de injeção acesa', icon: 'warning' as const },
+  { id:'p4', label:'Vazamento de óleo', icon: 'water' as const },
+  { id:'p5', label:'Freios com ruído', icon: 'disc' as const },
+  { id:'p6', label:'Câmbio com dificuldade', icon: 'cog' as const },
+  { id:'p7', label:'Ar condicionado', icon: 'snow' as const },
+  { id:'p8', label:'Bateria fraca', icon: 'battery-dead' as const },
+  { id:'p9', label:'Revisão programada', icon: 'calendar' as const },
 ];
 
-export function DefeitosScreen({ navigation, route }: Props) {
+export function DefeitosScreen({ navigation, route }: DefeitosProps) {
+  const colors = useColors();
   const { osId, placa } = route.params;
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [outro, setOutro] = useState('');
@@ -42,17 +44,14 @@ export function DefeitosScreen({ navigation, route }: Props) {
   async function criarOS() {
     const itens = [
       ...PROBLEMAS_COMUNS.filter((p) => selecionados.has(p.id)).map((p) => ({
-        descricao: p.label,
-        tipo: 'defeito',
+        descricao: p.label, tipo: 'defeito' as const,
       })),
-      ...(outro.trim() ? [{ descricao: outro.trim(), tipo: 'defeito' }] : []),
+      ...(outro.trim() ? [{ descricao: outro.trim(), tipo: 'defeito' as const }] : []),
     ];
-
     if (itens.length === 0) {
       Alert.alert('Selecione ao menos um defeito', 'Marque o problema ou descreva no campo livre.');
       return;
     }
-
     setSalvando(true);
     try {
       await Promise.all(
@@ -64,7 +63,6 @@ export function DefeitosScreen({ navigation, route }: Props) {
           })
         )
       );
-
       navigation.replace('Acompanhamento', { osId });
     } catch {
       Alert.alert('Erro', 'Falha ao salvar os defeitos.');
@@ -74,78 +72,93 @@ export function DefeitosScreen({ navigation, route }: Props) {
   }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <ScreenView>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        Problemas relatados para {placa}
+      </Text>
 
-      <Text style={s.subtitle}>Problemas relatados para {placa}</Text>
+      <Card>
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Marque os defeitos</Text>
+        <View style={styles.problemasGrid}>
+          {PROBLEMAS_COMUNS.map((p) => {
+            const ativo = selecionados.has(p.id);
+            return (
+              <TouchableOpacity
+                key={p.id}
+                style={[
+                  styles.problemaChip,
+                  {
+                    backgroundColor: ativo ? colors.primary + '15' : colors.background,
+                    borderColor: ativo ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => toggle(p.id)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={p.icon}
+                  size={16}
+                  color={ativo ? colors.primary : colors.textMuted}
+                />
+                <Text style={[styles.chipLabel, { color: ativo ? colors.primary : colors.textSecondary }]}>
+                  {p.label}
+                </Text>
+                {ativo && (
+                  <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Card>
 
-      <View style={s.card}>
-        <Text style={s.sectionTitle}>Marque os defeitos</Text>
-        {PROBLEMAS_COMUNS.map((p) => {
-          const ativo = selecionados.has(p.id);
-          return (
-            <TouchableOpacity
-              key={p.id}
-              style={[s.checkRow, ativo && s.checkRowActive]}
-              onPress={() => toggle(p.id)}
-            >
-              <View style={[s.checkbox, ativo && s.checkboxActive]}>
-                {ativo && <Text style={s.checkmark}>✓</Text>}
-              </View>
-              <Text style={[s.checkLabel, ativo && { color: '#e8eaf0' }]}>{p.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={s.card}>
-        <Text style={s.sectionTitle}>Outro problema</Text>
+      <Card>
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Outro problema</Text>
         <TextInput
-          style={s.textArea}
+          style={[styles.textArea, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
           value={outro}
           onChangeText={setOutro}
           placeholder="Descreva um problema específico..."
-          placeholderTextColor="#8b91a8"
+          placeholderTextColor={colors.textMuted}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
         />
-      </View>
+      </Card>
 
-      <TouchableOpacity
-        style={[s.btnPrimary, salvando && { opacity: 0.6 }]}
+      <Button
+        title="Abrir ordem de serviço"
         onPress={criarOS}
-        disabled={salvando}
-      >
-        {salvando
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={s.btnTxt}>Abrir ordem de serviço →</Text>
-        }
-      </TouchableOpacity>
-
-    </ScrollView>
+        loading={salvando}
+        style={{ marginTop: spacing.sm }}
+      />
+    </ScreenView>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * AcompanhamentoScreen — lista de itens da OS com atualização de status
- */
+// ─── AcompanhamentoScreen ─────────────────────────────────────────────────────
 
 type AcompProps = NativeStackScreenProps<RootStackParamList, 'Acompanhamento'>;
 
 const STATUS_ITEM = ['pendente', 'em_andamento', 'concluido'] as const;
 const STATUS_LABEL_ITEM: Record<string, string> = {
-  pendente: '⏳ Pendente',
-  em_andamento: '🔧 Andamento',
-  concluido: '✅ Concluído',
+  pendente: 'Pendente',
+  em_andamento: 'Em andamento',
+  concluido: 'Concluído',
 };
 const STATUS_COLOR_ITEM: Record<string, string> = {
   pendente: '#8b91a8',
   em_andamento: '#eab308',
   concluido: '#22c55e',
 };
+const STATUS_ICON_ITEM: Record<string, keyof typeof Ionicons.glyphMap> = {
+  pendente: 'ellipse-outline',
+  em_andamento: 'sync-circle',
+  concluido: 'checkmark-circle',
+};
 
 export function AcompanhamentoScreen({ navigation, route }: AcompProps) {
+  const colors = useColors();
   const { osId } = route.params;
   const [itens, setItens] = useState([
     { id:'i1', descricao:'Barulho na suspensão', status:'em_andamento', valorMaoObra:0, valorPecas:0 },
@@ -156,15 +169,10 @@ export function AcompanhamentoScreen({ navigation, route }: AcompProps) {
   async function avancarStatus(itemId: string) {
     const item = itens.find((i) => i.id === itemId);
     if (!item) return;
-
     const idx = STATUS_ITEM.indexOf(item.status as any);
     if (idx >= STATUS_ITEM.length - 1) return;
     const novoStatus = STATUS_ITEM[idx + 1];
-
-    setItens((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, status: novoStatus } : i))
-    );
-
+    setItens((prev) => prev.map((i) => (i.id === itemId ? { ...i, status: novoStatus } : i)));
     await fetch(`${API_URL}/os/${osId}/itens/${itemId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -176,61 +184,60 @@ export function AcompanhamentoScreen({ navigation, route }: AcompProps) {
   const todosFeitos = itens.every((i) => i.status === 'concluido');
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
-
+    <ScreenView>
       {itens.map((item) => {
         const cor = STATUS_COLOR_ITEM[item.status];
         const label = STATUS_LABEL_ITEM[item.status];
+        const icon = STATUS_ICON_ITEM[item.status];
         const podAvancar = item.status !== 'concluido';
 
         return (
-          <View key={item.id} style={s.itemCard}>
-            <View style={s.itemTop}>
-              <View style={[s.dot, { backgroundColor: cor }]} />
-              <Text style={s.itemDesc}>{item.descricao}</Text>
-            </View>
-            <View style={s.itemBottom}>
-              <Text style={[s.statusLbl, { color: cor }]}>{label}</Text>
+          <Card key={item.id} style={styles.itemCard}>
+            <View style={styles.itemRow}>
+              <Ionicons name={icon} size={22} color={cor} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.itemDesc, { color: colors.text }]}>{item.descricao}</Text>
+                <Text style={[styles.statusText, { color: cor }]}>{label}</Text>
+              </View>
               {podAvancar && (
-                <TouchableOpacity style={s.avancarBtn} onPress={() => avancarStatus(item.id)}>
-                  <Text style={s.avancarTxt}>Avançar →</Text>
+                <TouchableOpacity
+                  style={[styles.avancarBtn, { backgroundColor: colors.primary + '20' }]}
+                  onPress={() => avancarStatus(item.id)}
+                >
+                  <Ionicons name="arrow-forward" size={16} color={colors.primary} />
                 </TouchableOpacity>
               )}
             </View>
-          </View>
+          </Card>
         );
       })}
 
       {total > 0 && (
-        <View style={s.totalCard}>
-          <Text style={s.totalLabel}>Total estimado</Text>
-          <Text style={s.totalValue}>
+        <Card style={styles.totalCard}>
+          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Total estimado</Text>
+          <Text style={[styles.totalValue, { color: colors.primary }]}>
             {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </Text>
-        </View>
+        </Card>
       )}
 
       {todosFeitos && (
-        <TouchableOpacity
-          style={s.btnPrimary}
+        <Button
+          title="Finalizar e notificar cliente"
           onPress={() => navigation.navigate('Finalizar', { osId })}
-        >
-          <Text style={s.btnTxt}>Finalizar e notificar cliente →</Text>
-        </TouchableOpacity>
+          style={{ marginTop: spacing.sm }}
+        />
       )}
-
-    </ScrollView>
+    </ScreenView>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * FinalizarScreen — resumo final + disparo do WhatsApp
- */
+// ─── FinalizarScreen ─────────────────────────────────────────────────────────
 
 type FinalizarProps = NativeStackScreenProps<RootStackParamList, 'Finalizar'>;
 
 export function FinalizarScreen({ navigation, route }: FinalizarProps) {
+  const colors = useColors();
   const { osId } = route.params;
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -253,98 +260,159 @@ export function FinalizarScreen({ navigation, route }: FinalizarProps) {
 
   if (enviado) {
     return (
-      <View style={[s.container, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
-        <Text style={{ fontSize: 64 }}>✅</Text>
-        <Text style={[s.subtitle, { textAlign: 'center', marginTop: 16, fontSize: 18, fontWeight: '700', color: '#e8eaf0' }]}>
-          Serviço finalizado!
-        </Text>
-        <Text style={[s.subtitle, { textAlign: 'center', marginTop: 8 }]}>
-          Mensagem enviada ao cliente via WhatsApp.
-        </Text>
-        <TouchableOpacity
-          style={[s.btnPrimary, { marginTop: 32, width: '100%' }]}
-          onPress={() => navigation.navigate('Pistas')}
-        >
-          <Text style={s.btnTxt}>Voltar à pista</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenView scroll={false}>
+        <View style={styles.sucesso}>
+          <View style={[styles.sucessoIcon, { backgroundColor: colors.success + '20' }]}>
+            <Ionicons name="checkmark-done" size={48} color={colors.success} />
+          </View>
+          <Text style={[styles.sucessoTitle, { color: colors.text }]}>Serviço finalizado!</Text>
+          <Text style={[styles.sucessoSub, { color: colors.textSecondary }]}>
+            Mensagem enviada ao cliente via WhatsApp.
+          </Text>
+          <Button
+            title="Voltar à pista"
+            onPress={() => navigation.navigate('Pistas')}
+            style={{ width: '100%', marginTop: spacing.xl }}
+          />
+        </View>
+      </ScreenView>
     );
   }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <View style={s.card}>
-        <Text style={s.sectionTitle}>Resumo dos serviços</Text>
-        <Text style={{ color: '#8b91a8', fontSize: 13 }}>
-          Ao confirmar, a OS será marcada como concluída e o cliente receberá uma mensagem automática no WhatsApp com a lista de serviços realizados.
+    <ScreenView>
+      <Card>
+        <View style={styles.confirmHeader}>
+          <Ionicons name="chatbubbles-outline" size={32} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.textMuted, marginTop: spacing.sm }]}>
+            Resumo dos serviços
+          </Text>
+        </View>
+        <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
+          Ao confirmar, a OS será marcada como concluída e o cliente receberá uma
+          mensagem automática no WhatsApp com a lista de serviços realizados.
         </Text>
-      </View>
+      </Card>
 
-      <TouchableOpacity
-        style={[s.btnPrimary, enviando && { opacity: 0.6 }]}
+      <Button
+        title="Finalizar e notificar via WhatsApp"
         onPress={finalizar}
-        disabled={enviando}
-      >
-        {enviando
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={s.btnTxt}>💬 Finalizar e notificar via WhatsApp</Text>
-        }
-      </TouchableOpacity>
-    </ScrollView>
+        loading={enviando}
+        style={{ marginTop: spacing.sm }}
+      />
+    </ScreenView>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Estilos compartilhados
-// ─────────────────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16, gap: 12, paddingBottom: 40 },
-  subtitle: { fontSize: 14, color: '#8b91a8' },
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 
-  card: {
-    backgroundColor: '#181c27', borderRadius: 12,
-    borderWidth: 1, borderColor: '#252a38', padding: 16, gap: 10,
+const styles = StyleSheet.create({
+  subtitle: {
+    fontSize: 14,
+    marginBottom: spacing.xs,
   },
-  sectionTitle: { fontSize: 12, color: '#8b91a8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: {
+    ...typography.h2,
+    marginBottom: spacing.sm,
+  },
 
-  checkRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderBottomWidth: 1, borderColor: '#252a38',
+  // Defeitos
+  problemasGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  checkRowActive: { backgroundColor: 'transparent' },
-  checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
-    borderColor: '#3a4055', alignItems: 'center', justifyContent: 'center',
+  problemaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  checkboxActive: { backgroundColor: '#f97316', borderColor: '#f97316' },
-  checkmark: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  checkLabel: { fontSize: 14, color: '#8b91a8', flex: 1 },
-
+  chipLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   textArea: {
-    backgroundColor: '#0f1117', borderWidth: 1, borderColor: '#252a38',
-    borderRadius: 8, padding: 12, fontSize: 14, color: '#e8eaf0', minHeight: 80,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 14,
+    minHeight: 80,
   },
 
+  // Acompanhamento
   itemCard: {
-    backgroundColor: '#181c27', borderRadius: 12,
-    borderWidth: 1, borderColor: '#252a38', padding: 14, gap: 8,
+    padding: spacing.lg,
   },
-  itemTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  itemDesc: { fontSize: 14, color: '#e8eaf0', fontWeight: '600', flex: 1 },
-  itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  statusLbl: { fontSize: 12, fontWeight: '600' },
-  avancarBtn: { backgroundColor: '#f9731620', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5 },
-  avancarTxt: { color: '#f97316', fontSize: 12, fontWeight: '700' },
-
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  itemDesc: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  avancarBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   totalCard: {
-    backgroundColor: '#181c27', borderRadius: 12, borderWidth: 1, borderColor: '#252a38',
-    padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  totalLabel: { color: '#8b91a8', fontSize: 14, fontWeight: '600' },
-  totalValue: { color: '#f97316', fontSize: 20, fontWeight: '800' },
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  totalValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
 
-  btnPrimary: { backgroundColor: '#f97316', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 4 },
-  btnTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  // Finalizar
+  sucesso: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xxl,
+  },
+  sucessoIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  sucessoTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  sucessoSub: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  confirmHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  confirmText: {
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
 });

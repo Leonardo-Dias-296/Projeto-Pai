@@ -1,18 +1,14 @@
-/**
- * ScanPlacaScreen — câmera para captura da placa + fallback de digitação manual.
- *
- * Dependências:
- *   npx expo install expo-camera expo-image-picker
- */
-
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Alert, ScrollView,
+  StyleSheet, ActivityIndicator, Alert, useWindowDimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
+import { Card, Button, ScreenView } from '../components';
+import { useColors, spacing, borderRadius, typography } from '../theme';
 import { API_URL } from '../config';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScanPlaca'>;
@@ -29,6 +25,10 @@ type VeiculoEncontrado = {
 };
 
 export function ScanPlacaScreen({ navigation }: Props) {
+  const colors = useColors();
+  const { width } = useWindowDimensions();
+  const cameraHeight = width * 0.75;
+
   const [permission, requestPermission] = useCameraPermissions();
   const [modo, setModo] = useState<'camera' | 'manual'>('camera');
   const [capturando, setCapturando] = useState(false);
@@ -37,67 +37,49 @@ export function ScanPlacaScreen({ navigation }: Props) {
   const [buscando, setBuscando] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  // ─── Captura de foto ───────────────────────────────────────────────────────
   async function tirarFoto() {
     if (!cameraRef.current) return;
     setCapturando(true);
     try {
       const foto = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.7 });
       if (!foto?.base64) return;
-
-      // Envia para o backend fazer OCR
       const res = await fetch(`${API_URL}/placa/ocr`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: foto.base64 }),
       });
-
       const json = await res.json();
-
       if (json.placa) {
         await buscarVeiculo(json.placa);
       } else {
         Alert.alert(
           'Placa não reconhecida',
-          'Não foi possível ler a placa automaticamente. Digite-a manualmente.',
+          'Não foi possível ler a placa. Digite manualmente.',
           [{ text: 'Digitar', onPress: () => setModo('manual') }]
         );
       }
     } catch {
-      Alert.alert('Erro', 'Falha ao processar a imagem. Tente novamente.');
+      Alert.alert('Erro', 'Falha ao processar a imagem.');
     } finally {
       setCapturando(false);
     }
   }
 
-  // ─── Busca de dados na API ─────────────────────────────────────────────────
   async function buscarVeiculo(placa: string) {
     setBuscando(true);
     setVeiculo(null);
     try {
-      // 1. Verifica se já existe no banco local
       const localRes = await fetch(`${API_URL}/veiculos/placa/${placa}`);
-
       if (localRes.ok) {
         const v = await localRes.json();
         setVeiculo({ ...v, placa });
         return;
       }
-
-      // 2. Consulta API veicular externa
       const extRes = await fetch(`${API_URL}/placa/${placa}`);
-
       if (extRes.ok) {
         const dados = await extRes.json();
-        setVeiculo({
-          placa,
-          marca: dados.marca,
-          modelo: dados.modelo,
-          ano: dados.ano,
-          cor: dados.cor,
-        });
+        setVeiculo({ placa, marca: dados.marca, modelo: dados.modelo, ano: dados.ano, cor: dados.cor });
       } else {
-        // Veículo não encontrado mas placa válida — prossegue com cadastro manual
         setVeiculo({ placa, marca: '', modelo: '', ano: 0, cor: '' });
       }
     } catch {
@@ -107,22 +89,16 @@ export function ScanPlacaScreen({ navigation }: Props) {
     }
   }
 
-  // ─── Confirma e navega para check-in ──────────────────────────────────────
   async function confirmarVeiculo() {
     if (!veiculo) return;
-
     try {
-      // Se é veículo novo, cria no banco antes de prosseguir
       if (!veiculo.id) {
         const createRes = await fetch(`${API_URL}/veiculos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            placa: veiculo.placa,
-            marca: veiculo.marca,
-            modelo: veiculo.modelo,
-            ano: veiculo.ano,
-            cor: veiculo.cor,
+            placa: veiculo.placa, marca: veiculo.marca,
+            modelo: veiculo.modelo, ano: veiculo.ano, cor: veiculo.cor,
           }),
         });
         const criado = await createRes.json();
@@ -135,171 +111,218 @@ export function ScanPlacaScreen({ navigation }: Props) {
     }
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   if (!permission?.granted) {
     return (
-      <View style={s.centrado}>
-        <Text style={s.texto}>Precisamos de acesso à câmera para ler a placa.</Text>
-        <TouchableOpacity style={s.btn} onPress={requestPermission}>
-          <Text style={s.btnTxt}>Permitir câmera</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setModo('manual')}>
-          <Text style={s.link}>Digitar placa manualmente</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenView scroll={false}>
+        <View style={styles.center}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}>
+            <Ionicons name="camera-outline" size={36} color={colors.primary} />
+          </View>
+          <Text style={[styles.centerText, { color: colors.textSecondary }]}>
+            Precisamos de acesso à câmera para escanear a placa.
+          </Text>
+          <Button title="Permitir câmera" onPress={requestPermission} />
+          <TouchableOpacity onPress={() => setModo('manual')}>
+            <Text style={[styles.link, { color: colors.primary }]}>Digitar placa manualmente</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenView>
     );
   }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ gap: 16, padding: 16 }}>
-
-      {/* ── Câmera ou input manual ─────────────────────────────────────────── */}
+    <ScreenView>
       {modo === 'camera' ? (
-        <View style={s.cameraWrap}>
-          <CameraView ref={cameraRef} style={s.camera} facing="back">
-            {/* Guia de enquadramento */}
-            <View style={s.guia}>
-              <View style={s.guiaCantoTL} /><View style={s.guiaCantTR} />
-              <Text style={s.guiaTxt}>Centralize a placa</Text>
-              <View style={s.guiaCantoBL} /><View style={s.guiaCantoBR} />
-            </View>
-          </CameraView>
-
-          <TouchableOpacity
-            style={[s.btn, capturando && { opacity: 0.6 }]}
+        <View style={styles.section}>
+          <View style={[styles.cameraWrap, { height: cameraHeight }]}>
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back">
+              <View style={styles.guia}>
+                <View style={styles.guiaCantoTL} /><View style={styles.guiaCantTR} />
+                <Text style={styles.guiaTxt}>Centralize a placa</Text>
+                <View style={styles.guiaCantoBL} /><View style={styles.guiaCantoBR} />
+              </View>
+            </CameraView>
+          </View>
+          <Button
+            title="Tirar foto da placa"
             onPress={tirarFoto}
-            disabled={capturando}
-          >
-            {capturando
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={s.btnTxt}>📸 Tirar foto da placa</Text>
-            }
-          </TouchableOpacity>
-
+            loading={capturando}
+            style={{ marginTop: spacing.md }}
+          />
           <TouchableOpacity onPress={() => setModo('manual')}>
-            <Text style={s.link}>Digitar manualmente</Text>
+            <Text style={[styles.link, { color: colors.primary, textAlign: 'center', marginTop: spacing.sm }]}>
+              Digitar manualmente
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={s.manualWrap}>
-          <Text style={s.label}>Placa do veículo</Text>
-          <TextInput
-            style={s.placaInput}
-            value={placaDigitada}
-            onChangeText={(t) => setPlacaDigitada(t.toUpperCase())}
-            placeholder="Ex: ABC1D23"
-            placeholderTextColor="#8b91a8"
-            autoCapitalize="characters"
-            maxLength={7}
-          />
-          <TouchableOpacity
-            style={[s.btn, (!placaDigitada || buscando) && { opacity: 0.5 }]}
-            onPress={() => buscarVeiculo(placaDigitada)}
-            disabled={!placaDigitada || buscando}
-          >
-            {buscando
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={s.btnTxt}>🔍 Buscar dados</Text>
-            }
-          </TouchableOpacity>
+        <View style={styles.section}>
+          <Card>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Placa do veículo</Text>
+            <TextInput
+              style={[styles.placaInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={placaDigitada}
+              onChangeText={(t) => setPlacaDigitada(t.toUpperCase())}
+              placeholder="ABC1D23"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="characters"
+              maxLength={7}
+            />
+            <Button
+              title="Buscar dados"
+              onPress={() => buscarVeiculo(placaDigitada)}
+              disabled={!placaDigitada}
+              loading={buscando}
+              style={{ marginTop: spacing.sm }}
+            />
+          </Card>
           <TouchableOpacity onPress={() => setModo('camera')}>
-            <Text style={s.link}>Usar câmera</Text>
+            <Text style={[styles.link, { color: colors.primary, textAlign: 'center', marginTop: spacing.md }]}>
+              Usar câmera
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* ── Resultado da busca ─────────────────────────────────────────────── */}
       {veiculo && (
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Veículo identificado</Text>
+        <Card elevated style={styles.veiculoCard}>
+          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Veículo identificado</Text>
 
-          <View style={s.placaBadge}>
-            <Text style={s.placaTxt}>{veiculo.placa}</Text>
+          <View style={[styles.placaBadge, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Ionicons name="car-sport" size={18} color={colors.primary} />
+            <Text style={[styles.placaTxt, { color: colors.text }]}>{veiculo.placa}</Text>
           </View>
 
           {veiculo.modelo ? (
             <>
-              <InfoRow label="Marca / Modelo" value={`${veiculo.marca} ${veiculo.modelo}`} />
-              <InfoRow label="Ano" value={String(veiculo.ano)} />
-              <InfoRow label="Cor" value={veiculo.cor} />
+              <InfoRow colors={colors} label="Marca / Modelo" value={`${veiculo.marca} ${veiculo.modelo}`} />
+              <InfoRow colors={colors} label="Ano" value={String(veiculo.ano)} />
+              <InfoRow colors={colors} label="Cor" value={veiculo.cor} />
               {veiculo.cliente && (
                 <>
-                  <View style={s.divider} />
-                  <Text style={s.cardSubtitle}>Cliente cadastrado</Text>
-                  <InfoRow label="Nome" value={veiculo.cliente.nome} />
-                  <InfoRow label="Telefone" value={veiculo.cliente.telefone} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <InfoRow colors={colors} label="Cliente" value={veiculo.cliente.nome} />
+                  <InfoRow colors={colors} label="Telefone" value={veiculo.cliente.telefone} />
                 </>
               )}
             </>
           ) : (
-            <Text style={s.subText}>Veículo não cadastrado — complete os dados no check-in.</Text>
+            <Text style={[styles.subText, { color: colors.textSecondary }]}>
+              Veículo não cadastrado — complete os dados no check-in.
+            </Text>
           )}
 
-          <TouchableOpacity style={[s.btn, { marginTop: 12 }]} onPress={confirmarVeiculo}>
-            <Text style={s.btnTxt}>Confirmar e fazer check-in →</Text>
-          </TouchableOpacity>
-        </View>
+          <Button title="Confirmar e fazer check-in" onPress={confirmarVeiculo} style={{ marginTop: spacing.md }} />
+        </Card>
       )}
-    </ScrollView>
+    </ScreenView>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ colors, label, value }: { colors: any; label: string; value: string }) {
   return (
-    <View style={s.infoRow}>
-      <Text style={s.infoLabel}>{label}</Text>
-      <Text style={s.infoValue}>{value || '—'}</Text>
+    <View style={[infoStyles.row, { borderBottomColor: colors.border }]}>
+      <Text style={[infoStyles.label, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[infoStyles.value, { color: colors.text }]}>{value || '—'}</Text>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1 },
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  texto: { color: '#e8eaf0', textAlign: 'center', fontSize: 15 },
+const infoStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  label: { fontSize: 13 },
+  value: { fontSize: 13, fontWeight: '600' },
+});
 
-  cameraWrap: { gap: 12 },
-  camera: { height: 200, borderRadius: 12, overflow: 'hidden' },
-
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    padding: spacing.xxl,
+  },
+  iconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerText: {
+    textAlign: 'center',
+    fontSize: 15,
+  },
+  link: {
+    fontSize: 13,
+    fontWeight: '600',
+    padding: spacing.sm,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  cameraWrap: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
   guia: {
-    position: 'absolute', top: 20, left: 20, right: 20, bottom: 20,
-    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute',
+    top: 20, left: 20, right: 20, bottom: 20,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   guiaCantoTL: { position:'absolute', top:0, left:0, width:20, height:20, borderTopWidth:2, borderLeftWidth:2, borderColor:'#f97316', borderRadius:2 },
   guiaCantTR:  { position:'absolute', top:0, right:0, width:20, height:20, borderTopWidth:2, borderRightWidth:2, borderColor:'#f97316', borderRadius:2 },
   guiaCantoBL: { position:'absolute', bottom:0, left:0, width:20, height:20, borderBottomWidth:2, borderLeftWidth:2, borderColor:'#f97316', borderRadius:2 },
   guiaCantoBR: { position:'absolute', bottom:0, right:0, width:20, height:20, borderBottomWidth:2, borderRightWidth:2, borderColor:'#f97316', borderRadius:2 },
   guiaTxt: { color:'#f97316', fontSize:12, fontWeight:'600' },
-
-  manualWrap: { gap: 10 },
-  label: { fontSize: 13, color: '#8b91a8', fontWeight: '600' },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
   placaInput: {
-    backgroundColor: '#181c27', borderWidth: 1, borderColor: '#252a38',
-    borderRadius: 10, padding: 14, fontSize: 22, fontFamily: 'Courier New',
-    fontWeight: '700', color: '#e8eaf0', letterSpacing: 4, textAlign: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: 14,
+    fontSize: 22,
+    fontWeight: '700',
+    fontFamily: 'Courier New',
+    letterSpacing: 4,
+    textAlign: 'center',
   },
-
-  btn: { backgroundColor: '#f97316', borderRadius: 10, padding: 14, alignItems: 'center' },
-  btnTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  link: { color: '#f97316', textAlign: 'center', fontSize: 13, padding: 8 },
-
-  card: {
-    backgroundColor: '#181c27', borderRadius: 12,
-    borderWidth: 1, borderColor: '#252a38', padding: 16, gap: 8,
+  veiculoCard: {
+    gap: spacing.sm,
   },
-  cardTitle: { fontSize: 13, color: '#8b91a8', fontWeight: '600', marginBottom: 4 },
-  cardSubtitle: { fontSize: 12, color: '#8b91a8', fontWeight: '600' },
-
+  sectionTitle: {
+    ...typography.h2,
+  },
   placaBadge: {
-    backgroundColor: '#0f1117', borderWidth: 1, borderColor: '#3a4055',
-    borderRadius: 8, padding: 10, alignItems: 'center', marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
   },
-  placaTxt: { fontFamily: 'Courier New', fontSize: 22, fontWeight: '800', color: '#e8eaf0', letterSpacing: 3 },
-
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderColor: '#252a38' },
-  infoLabel: { color: '#8b91a8', fontSize: 13 },
-  infoValue: { color: '#e8eaf0', fontSize: 13, fontWeight: '600' },
-
-  subText: { color: '#8b91a8', fontSize: 13 },
-  divider: { height: 1, backgroundColor: '#252a38', marginVertical: 4 },
+  placaTxt: {
+    fontFamily: 'Courier New',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 3,
+  },
+  subText: {
+    fontSize: 13,
+  },
+  divider: {
+    height: 1,
+    marginVertical: spacing.xs,
+  },
 });
