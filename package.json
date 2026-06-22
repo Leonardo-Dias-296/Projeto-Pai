@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "backend": "npm run dev --workspace=apps/backend",
+    "hybrid": "npm run dev --workspace=apps/hybrid",
+    "hybrid:build": "npm run build --workspace=apps/hybrid",
     "mobile": "npm run start --workspace=apps/mobile",
     "web": "npm run dev --workspace=apps/web"
   }

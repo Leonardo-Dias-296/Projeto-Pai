@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { authRouter } from './routes/auth';
 import { ordemServicoRouter } from './routes/ordemServico';
 import { veiculoRouter } from './routes/veiculo';
 import { clienteRouter } from './routes/cliente';
@@ -15,6 +16,7 @@ app.use(express.json());
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // ─── Rotas ────────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRouter);
 app.use('/api/placa', placaRouter);
 app.use('/api/clientes', clienteRouter);
 app.use('/api/veiculos', veiculoRouter);
